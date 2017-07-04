@@ -1,0 +1,154 @@
+---
+title: "Reproducible Research (week4)"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+### Name : Taesoon Kim
+### Date : Jul-03-2017
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Title : Health and economic influences with respect to types of events
+## Synopsis
+There are a variety of severe weather events, and each event influences differently. According to NOAA storm database, I want to know which events are most harmful about public health and have the greatest economic results. For this, I will analyze storm data, and explore in detail to see which events are causing the most damages. Thereafter, if we know what events are coming, we can prepare for prescription. Therefore it can be helpful for our lives.
+After I analyzed storm data, "TORNADO" is most harmful for population health, and "FLOOD" and "DROUGHT" are the biggest impact on financial damage.
+
+## Data Processing
+
+```{r load data}
+# Set the directory
+setwd("D:/1-1. R studio/lecture5. reproducible research/week4")
+
+# System change
+Sys.setlocale(category="LC_CTYPE",locale="C")
+
+# Load raw data
+raw_data<-read.csv(file="repdata_data_StormData.csv.bz2",header=TRUE)
+head(raw_data)
+```
+
+In CSV file, there are 37 columns and 902,297 rows. As I use head() function, I can check the column names, and which data is in raw file.
+
+#### 1. Across the United States, which types of events(as indicated in the EVTYPE variable) are most harmful with respect to population health?
+
+  - I already saw data variable, "FATALITIES" and "INJURIES" data are influenced by events
+
+```{r which types of events have most facilities}
+# Identify the EVTYPE labels
+events<-unique(raw_data$EVTYPE)
+
+# How "Fatalities" are influenced
+# I align descending order, and select 10 rows
+fatalities<-aggregate(FATALITIES~EVTYPE,raw_data,sum)
+fatal_order<-fatalities[order(-fatalities$FATALITIES),]  
+fatal_order_head<-head(fatal_order,10)
+fatal_order_head
+```
+
+```{r which types of events have most injuries}
+
+# How "Injuries" are influenced
+# I align descending order, and select 10 rows
+injuries<-aggregate(INJURIES~EVTYPE,raw_data,sum)
+inj_order<-injuries[order(-injuries$INJURIES),]  
+inj_order_head<-head(inj_order,10)
+inj_order_head
+```
+
+#### 2. Across the United States, which types of events have the greatest economic consequences?
+
+  - I already saw data variable, "Property damage" and "Crop damage" data are influenced by events
+
+```{r which types of events are most property damage}
+# Identify the Property damage labels
+prop_dmg_exp<-unique(raw_data$PROPDMGEXP)
+prop_dmg_exp
+
+# Property damage exp has 19 levels, and I allocate the number
+raw_data$PROP[raw_data$PROPDMGEXP=="-"]<--1
+raw_data$PROP[raw_data$PROPDMGEXP=="?"]<-0
+raw_data$PROP[raw_data$PROPDMGEXP=="+"|raw_data$PROPDMGEXP==""]<-+1
+for(i in 0:8){
+  raw_data$PROP[raw_data$PROPDMGEXP==i]<-(10^i)
+}
+raw_data$PROP[raw_data$PROPDMGEXP=="B"]<-(10^9)
+raw_data$PROP[raw_data$PROPDMGEXP=="h"|raw_data$PROPDMGEXP=="H"]<-(10^2)
+raw_data$PROP[raw_data$PROPDMGEXP=="K"]<-(10^3)
+raw_data$PROP[raw_data$PROPDMGEXP=="m"|raw_data$PROPDMGEXP=="M"]<-(10^6)
+
+# I will calculate the property damage, multiplying "PROPDMG" and "PROPDMGEXP"
+raw_data$PROPVAL=raw_data$PROPDMG*raw_data$PROP
+
+# How "Property damage" is influenced
+# I align descending order, and select 10 rows
+prop_damage<-aggregate(PROPVAL~EVTYPE,raw_data,sum)
+prop_order<-prop_damage[order(-prop_damage$PROPVAL),]  
+prop_order_head<-head(prop_order,10)
+prop_order_head
+```
+
+```{r which types of events are most crop damage}
+# Identify the crop damage labels
+crop_dmg_exp<-unique(raw_data$CROPDMGEXP)
+crop_dmg_exp
+
+# Crop damage exp has 9 levels, and I allocate the number
+raw_data$CROP[raw_data$CROPDMGEXP=="?"]<-0
+for(i in 0:8){
+  raw_data$CROP[raw_data$CROPDMGEXP==i]<-(10^i)
+}
+raw_data$CROP[raw_data$CROPDMGEXP=="B"]<-(10^9)
+raw_data$CROP[raw_data$CROPDMGEXP=="K"]<-(10^3)
+raw_data$CROP[raw_data$CROPDMGEXP=="m"|raw_data$CROPDMGEXP=="M"]<-(10^6)
+
+# I will calculate the crop damage, multiplying "CROPDMG" and "CROPDMGEXP"
+raw_data$CROPVAL=raw_data$CROPDMG*raw_data$CROP
+
+# How "Crop damage" is influenced
+# I align descending order, and select 10 rows
+crop_damage<-aggregate(CROPVAL~EVTYPE,raw_data,sum)
+crop_order<-crop_damage[order(-crop_damage$CROPVAL),]  
+crop_order_head<-head(crop_order,10)
+crop_order_head
+```
+
+## Results
+
+```{r graph}
+
+# plot graph
+library(ggplot2)
+library(gridExtra)
+g1<-ggplot(fatal_order_head,aes(x=reorder(EVTYPE,FATALITIES),y=FATALITIES,fill=FATALITIES))
+g1<-g1+geom_bar(stat="identity")+coord_flip()
+g1<-g1+labs(title="The number of Fatilities",x="Types of events",y="Fatalities")
+g1<-g1+theme(legend.position = "none",axis.text=element_text(size=7))
+
+g2<-ggplot(inj_order_head,aes(x=reorder(EVTYPE,INJURIES),y=INJURIES,fill=INJURIES))
+g2<-g2+geom_bar(stat="identity")+coord_flip()
+g2<-g2+labs(title="The number of Injuries",x="",y="Injuries")
+g2<-g2+theme(legend.position = "none",axis.text=element_text(size=7))
+
+grid.arrange(g1, g2, ncol=2)
+
+# plot graph
+prop_order_head$PROPVAL<-prop_order_head$PROPVAL/(10^9)   # change the unit, -> Billion
+g3<-ggplot(prop_order_head,aes(x=reorder(EVTYPE,PROPVAL),y=PROPVAL,fill=PROPVAL))
+g3<-g3+geom_bar(stat="identity")+coord_flip()
+g3<-g3+labs(title="Property damage",x="Types of events",y="Damage(Billion USD)")
+g3<-g3+theme(legend.position ="none",axis.text=element_text(size=7))
+
+crop_order_head$CROPVAL<-crop_order_head$CROPVAL/(10^9)
+g4<-ggplot(crop_order_head,aes(x=reorder(EVTYPE,CROPVAL),y=CROPVAL,fill=CROPVAL))
+g4<-g4+geom_bar(stat="identity")+coord_flip()
+g4<-g4+labs(title="Crop damage",x="",y="Damage(Billion USD)")
+g4<-g4+theme(legend.position="none",axis.text=element_text(size=7))
+
+grid.arrange(g3, g4, ncol=2)
+```
+
+First, above the graph, "fatalities" and "injuries" are most influenced by "Tornado". Second, "FLOOD" and "DROUGHT" have the greatest economic consequences.
